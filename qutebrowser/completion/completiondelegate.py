@@ -285,11 +285,13 @@ class CompletionItemDelegate(QStyledItemDelegate):
         self._painter.restore()
 
 
+@config.change_filter('colors.completion.match.bg', function=True)
 @config.change_filter('colors.completion.match.fg', function=True)
 def _update_stylesheet():
     """Update the cached stylesheet."""
     stylesheet = """
         .highlight {
+            background-color: {{ conf.colors.completion.match.bg }};
             color: {{ conf.colors.completion.match.fg }};
         }
     """

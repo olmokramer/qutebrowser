@@ -27,6 +27,7 @@
 |<<colors.completion.item.selected.border.bottom,colors.completion.item.selected.border.bottom>>|Bottom border color of the selected completion item.
 |<<colors.completion.item.selected.border.top,colors.completion.item.selected.border.top>>|Top border color of the completion widget category headers.
 |<<colors.completion.item.selected.fg,colors.completion.item.selected.fg>>|Foreground color of the selected completion item.
+|<<colors.completion.match.bg,colors.completion.match.bg>>|Background color of the matched text in the completion.
 |<<colors.completion.match.fg,colors.completion.match.fg>>|Foreground color of the matched text in the completion.
 |<<colors.completion.odd.bg,colors.completion.odd.bg>>|Background color of the completion widget for odd rows.
 |<<colors.completion.scrollbar.bg,colors.completion.scrollbar.bg>>|Color of the scrollbar in the completion view.
@@ -766,6 +767,14 @@ Foreground color of the selected completion item.
 Type: <<types,QtColor>>
 
 Default: +pass:[black]+
+
+[[colors.completion.match.bg]]
+=== colors.completion.match.bg
+Background color of the matched text in the completion.
+
+Type: <<types,QssColor>>
+
+Default: +pass:[transparent]+
 
 [[colors.completion.match.fg]]
 === colors.completion.match.fg

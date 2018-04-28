@@ -1675,6 +1675,11 @@ colors.completion.item.selected.border.bottom:
   type: QssColor
   desc: Bottom border color of the selected completion item.
 
+colors.completion.match.bg:
+  default: 'transparent'
+  type: QssColor
+  desc: Background color of the matched text in the completion.
+
 colors.completion.match.fg:
   default: '#ff4444'
   type: QssColor
