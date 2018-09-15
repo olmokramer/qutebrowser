@@ -33,8 +33,12 @@ qutebrowser's initialization process roughly looks like this:
   See the docstring of app.py for details.
 """
 
+import os
+import re
 import sys
+import glob
 import json
+import pathlib
 
 import qutebrowser
 try:
@@ -51,18 +55,116 @@ except ImportError:
         sys.stderr.flush()
         sys.exit(100)
 check_python_version()
-from qutebrowser.utils import log
+from qutebrowser.utils import log, standarddir
 
 import argparse  # pylint: disable=wrong-import-order
 from qutebrowser.misc import earlyinit
 
 
+class CompletableArgumentParser(argparse.ArgumentParser):
+    _arg_completions = dict()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def add_argument(self, *args, complete=None, **kwargs):
+        super().add_argument(*args, **kwargs)
+
+        if complete == 'directory':
+            complete = self.complete_directory
+        elif complete == 'file':
+            complete = self.complete_file
+        elif complete == 'session':
+            complete = self.complete_session
+        elif 'choices' in kwargs:
+            complete = self.make_choices_completer(kwargs['choices'])
+
+        for arg in args:
+            self._arg_completions[arg] = complete
+
+    def complete_arg(self, partial, comp_words):
+        return [
+            arg for arg in self._arg_completions if arg.startswith(partial)
+        ]
+
+    def complete_directory(self, partial, comp_words):
+        return [
+            file
+            for file in self.complete_file(partial, comp_words)
+            if os.path.isdir(file)
+        ]
+
+    def complete_file(self, partial, comp_words):
+        partial = pathlib.Path(partial)
+
+        if partial.exists():
+            if partial.is_file():
+                return None
+            else:
+                files = [partial / file for file in partial.iterdir()]
+        else:
+            parent = partial.parent
+
+            if not parent.exists():
+                return []
+
+            files = [
+                parent / file
+                for file in parent.iterdir()
+                if file.name.startswith(partial.name)
+            ]
+
+        return [str(file) for file in files]
+
+    def complete_session(self, partial, comp_words):
+        for i, word in enumerate(comp_words):
+            if word in {'-B', '--basedir'} and i < len(comp_words) - 1:
+                basedir = os.path.join(comp_words[i + 1], 'data')
+                break
+        else:
+            basedir = standarddir.data()
+
+        sessions = glob.glob(os.path.join(basedir, 'sessions', '*.yml'))
+        name_re = re.compile(r'.*/(.*).yml')
+
+        return [
+            name_re.sub(r'\1', s)
+            for s in sessions
+            if s.startswith(partial) and not s.endswith('_autosave.yml')
+        ]
+
+    def make_choices_completer(self, choices):
+        def complete_choices(partial, comp_words):
+            return [c for c in choices if c.startswith(partial)]
+        return complete_choices
+
+    def complete(self, comp_words, comp_cword):
+        if comp_cword >= len(comp_words):
+            comp_cword = len(comp_words)
+            comp_words.append('')
+
+        cur_word = comp_words[comp_cword]
+
+        if cur_word and cur_word[0] == '-':
+            completions = self.complete_arg(cur_word, comp_words)
+        else:
+            prev_word = comp_words[comp_cword - 1]
+            try:
+                complete = self._arg_completions[prev_word]
+            except KeyError:
+                completions = self.complete_file('', comp_words)
+            else:
+                completions = complete(cur_word, comp_words)
+
+        print('\n'.join(completions))
+
+
 def get_argparser():
     """Get the argparse parser."""
-    parser = argparse.ArgumentParser(prog='qutebrowser',
-                                     description=qutebrowser.__description__)
+    parser = CompletableArgumentParser(prog='qutebrowser',
+                                       description=qutebrowser.__description__)
     parser.add_argument('-B', '--basedir', help="Base directory for all "
-                        "storage.")
+                        "storage.", complete='directory')
     parser.add_argument('-V', '--version', help="Show version and quit.",
                         action='store_true')
     parser.add_argument('-s', '--set', help="Set a temporary setting for "
@@ -70,7 +172,7 @@ def get_argparser():
                         dest='temp_settings', default=[],
                         metavar=('OPTION', 'VALUE'))
     parser.add_argument('-r', '--restore', help="Restore a named session.",
-                        dest='session')
+                        dest='session', complete='session')
     parser.add_argument('-R', '--override-restore', help="Don't restore a "
                         "session even if one would be restored.",
                         action='store_true')
@@ -179,6 +281,11 @@ def debug_flag_error(flag):
 def main():
     parser = get_argparser()
     argv = sys.argv[1:]
+    if argv[0] == '--complete':
+        standarddir.init(argparse.Namespace(basedir=None))
+        comp_words = argv[2:]
+        comp_cword = int(argv[1])
+        return parser.complete(comp_words, comp_cword)
     args = parser.parse_args(argv)
     if args.json_args is not None:
         # Restoring after a restart.
